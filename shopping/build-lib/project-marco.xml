@@ -1,0 +1,28 @@
+<project name="antmacros">
+
+		<property name="platformhome" location="${basedir}/hybris/bin/platform" />
+
+		<macrodef name="stopHybrisServer">
+		<sequential>
+			<echo message="Checking lock flag for the platform" />
+
+			<if>
+				<os family="windows" />
+				<then>
+					<exec dir="${platformhome}" executable="cmd.exe" osfamily="windows">
+						<arg line="/c" />
+						<arg line="hybrisserver.bat" />
+						<arg line="stop" />
+					</exec>
+				</then>
+				<else>
+					<exec dir="${platformhome}" executable="sh" osfamily="unix">
+						<arg line="-c ./hybrisserver.sh stop" />
+					</exec>
+				</else>
+			</if>
+		</sequential>
+	</macrodef>
+	<!-- Task Def -->
+
+</project>	 

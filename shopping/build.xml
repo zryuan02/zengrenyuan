@@ -1,0 +1,324 @@
+<!-- 
+     Build Script file for Jenkins
+-->
+<project name="fairpur" default="all" basedir=".">
+
+     <!--####   PROPERTIES     ######-->
+     <property name="hybris.home" value="${basedir}/hybris" />
+     <property name="platform.home" value="${hybris.home}/bin/platform" />
+     <property name="hybris.conf" value="${hybris.home}/config" />
+     <property name="env.conf" value="${basedir}/env-config" />
+     <property name="lib.dir" value="${basedir}/build-lib" />
+     <property name="temp.dir" value="${basedir}/temp" />
+     <property name="src.dir" value="${basedir}/custom-src" />
+     <property name="web.res.dir" value="${basedir}/custom-src/unimassstorefront/web/webroot/_ui" />
+     <property name="archieve.dir" value="${basedir}/target" />
+     <property name="local" value="local" />
+
+     <patternset id="packaging.filter">
+          <exclude name="**/.externalToolBuilders/**" />
+          <exclude name="**/.settings/**" />
+          <exclude name="**/eclipsebin/**" />
+          <exclude name="**/.classpath" />
+          <exclude name="**/.fbprefs" />
+          <exclude name="**/.pmd" />
+          <exclude name="**/.project" />
+          <exclude name="**/.springBeans" />
+     </patternset>
+	 
+     <!--####   PROPERTIES     ######-->
+
+     <!-- Task Def -->
+     <taskdef resource="net/sf/antcontrib/antlib.xml" classpath="${lib.dir}/ant-contrib-1.0b3.jar" />
+     <import file="${lib.dir}/project-marco.xml" />
+
+     <target name="init">
+          <echo message="Check if Hybris Package Exist" />
+          <if>
+               <available file="${hybris.home}" />
+          <then>
+               <echo message="hybris installed in ${hybris.home}." />
+          </then>
+          <else>
+               <unzip overwrite="true" src="${hybris.archive.file}"  dest="${basedir}" />
+          </else>
+          </if>
+     </target>
+
+     <target name="init.config" depends="init" >
+          <!-- Copy the common configure folder to hybris config -->
+          <copy todir="${hybris.conf}" overwrite="true" encoding="utf-8">
+               <fileset dir="${env.conf}/common" />
+          </copy>
+          <!--<copy todir="${platform.home}/lib/dbdriver" overwrite="true" encoding="utf-8">
+               <fileset dir="${env.conf}/common/customize/platform/lib/dbdriver" />
+          </copy>-->
+          <!-- Copy the Delta of local.properties -->
+          <if>
+               <isset property="sys" />
+          <then>
+               <copy todir="${hybris.conf}" overwrite="true" encoding="utf-8">
+                    <fileset dir="${env.conf}/${sys}" />
+               </copy>
+          </then>
+          <else>
+               <copy todir="${hybris.conf}" overwrite="true" encoding="utf-8">
+                    <fileset dir="${env.conf}/${local}" />
+               </copy>
+          </else>
+          </if>
+     </target>
+
+		 <target name="dev"  >
+			<property name="sys" value="dev" />
+		
+		     <copy todir="${hybris.conf}" overwrite="true" encoding="utf-8">
+               <fileset dir="${env.conf}/common" />
+            </copy>
+			
+			
+               <copy todir="${hybris.conf}" overwrite="true" encoding="utf-8">
+                    <fileset dir="${env.conf}/${sys}" />
+               </copy>
+			
+			
+		 </target>
+		
+		<target name="prd" >
+			<property name="sys" value="prd" />
+			
+	        <copy todir="${hybris.conf}" overwrite="true" encoding="utf-8">
+               <fileset dir="${env.conf}/common" />
+            </copy>
+			
+               <copy todir="${hybris.conf}" overwrite="true" encoding="utf-8">
+                    <fileset dir="${env.conf}/${sys}" />
+               </copy>
+			
+		 </target>
+		 
+	 
+     <target name="makelink">
+          <if>
+               <os family="windows" />
+          <then>
+               <exec dir="${hybris.home}/bin" executable="cmd.exe" osfamily="windows">
+                    <arg line="/c" />
+                    <arg line="mklink" />
+                    <arg line="/D" />
+                    <arg line="custom" />
+                    <arg line="&quot;${basedir}\custom-src&quot;" />
+               </exec>
+          </then>
+          <else>
+               <symlink link="${hybris.home}/bin/custom" resource="${basedir}/custom-src" />
+          </else>
+          </if>
+     </target>
+
+     <target name="init.ext" depends="init" >
+          <if>
+               <available file="${hybris.home}/bin/custom" />
+          <then>
+               <echo message="SymLink to Custome Extensions has been made" />
+          </then>
+          <else>
+               <ant target="makelink" />
+          </else>
+          </if>
+     </target>
+
+     <target name="clean" depends="init.config, init.ext">
+          <ant dir="${platform.home}" target="customize" />
+          <ant dir="${platform.home}" target="clean" />
+     </target>
+
+     <target name="build" depends="init.config, init.ext" >
+          <ant dir="${platform.home}" target="customize" />
+          <ant dir="${platform.home}" target="build" />
+     </target>
+
+     <target name="all" depends="init.config, init.ext" >
+          <ant dir="${platform.home}" target="customize" />
+          <ant dir="${platform.home}" target="all" />
+     </target>
+
+     <target name="unittests">
+          <ant dir="${platform.home}" target="unittests" />
+     </target>
+
+     <target name="integrationtests">
+          <ant dir="${platform.home}" target="integrationtests" />
+     </target>
+
+     <target name="production">
+          <ant dir="${platform.home}" target="production" />
+     </target>
+     
+     <target name="lightly.build">
+          <ant target="clean"  />
+          <ant target="build" />
+          <property name="testclasses.extensions" value="pccwcore,pccwfacades,pccwcockpits,pccwfulfilmentprocess,pccwstorefront" />
+          <ant target="unittests" />
+     </target>
+
+     <target name="full.build">
+          <ant target="clean"  />
+          <ant target="build" />
+          <!-- Initialize  Junit Tenants -->
+          <ant dir="${platform.home}" target="yunitinit" />
+          <property name="testclasses.extensions" value="pccwcore,pccwfacades,pccwcockpits,pccwfulfilmentprocess,pccwstorefront" />
+          <ant target="unittests" />
+          <ant target="integrationtests" />
+     </target>
+
+     <target name="package">
+          <!-- Clean up extension class and gensrc file -->
+          <if>
+               <available file="${temp.dir}" />
+          <then>
+               <delete dir="${temp.dir}" />
+          </then>
+          </if>
+          <mkdir dir="${temp.dir}" />
+          <!-- Prepare the Configuration -->
+          <copy todir="${temp.dir}/config" overwrite="true" encoding="utf-8">
+               <fileset dir="${env.conf}/common" />
+          </copy>
+          <if>
+               <isset property="sys" />
+          <then>
+               <copy todir="${temp.dir}/config" overwrite="true" encoding="utf-8">
+                    <fileset dir="${env.conf}/${sys}" />
+               </copy>
+          </then>
+          <else>
+               <copy todir="${temp.dir}/config" overwrite="false" encoding="utf-8">
+                    <fileset dir="${env.conf}/local" />
+               </copy>
+          </else>
+          </if>
+          <zip destfile="${temp.dir}/${ant.project.name}_config.zip" compress="true">
+               <fileset dir="${temp.dir}/config" />
+          </zip>
+          <!-- Package for Customization Extension -->
+          <zip destfile="${temp.dir}/${ant.project.name}_custom.zip" compress="true">
+               <fileset dir="${src.dir}" >
+                    <patternset refid="packaging.filter" />
+               </fileset>
+          </zip>
+          <!-- Package for Customization Extension -->
+          <zip destfile="${temp.dir}/${ant.project.name}_ui.zip" compress="true">
+               <fileset dir="${web.res.dir}" >
+                    <patternset refid="packaging.filter" />
+               </fileset>
+          </zip>		
+     </target>
+
+     <target name="archive">
+          <!-- Clean up target folder -->
+          <if>
+               <available file="${basedir}/target" />
+          <then>
+               <delete dir="${basedir}/target" />
+          </then>
+          </if>
+          <mkdir dir="${basedir}/target" />
+          <copy todir="${archieve.dir}">
+               <fileset dir="${temp.dir}">
+                    <include name="*.zip" />
+               </fileset>
+          </copy>
+          <copy todir="${archieve.dir}">
+               <fileset dir="${lib.dir}/scripts">
+                    <include name="*" />
+               </fileset>
+          </copy>
+     </target>
+
+     <target name="package._ui">
+          <!-- Clean up extension class and gensrc file -->
+          <if>
+               <available file="${temp.dir}" />
+               <then>
+                    <delete dir="${temp.dir}" />
+               </then>
+          </if>
+          <mkdir dir="${temp.dir}" />
+          <!-- Prepare the Configuration -->
+          <copy todir="${temp.dir}/config" overwrite="true" encoding="utf-8">
+               <fileset dir="${env.conf}/common" />
+          </copy>
+          <if>
+               <isset property="sys" />
+               <then>
+                    <copy todir="${temp.dir}/config" overwrite="true" encoding="utf-8">
+                         <fileset dir="${env.conf}/${sys}" />
+                    </copy>
+               </then>
+               <else>
+                    <copy todir="${temp.dir}/config" overwrite="false" encoding="utf-8">
+                         <fileset dir="${env.conf}/local" />
+                    </copy>
+               </else>
+          </if>
+          <zip destfile="${temp.dir}/${ant.project.name}_ui.zip" compress="true">
+               <fileset dir="${web.res.dir}" >
+                    <patternset refid="packaging.filter" />
+               </fileset>
+          </zip>
+     </target>
+     
+     <target name="package.jsp">
+          <!-- Clean up extension class and gensrc file -->
+          <if>
+               <available file="${temp.dir}" />
+               <then>
+                    <delete dir="${temp.dir}" />
+               </then>
+          </if>
+          <mkdir dir="${temp.dir}" />
+          <copy todir="${temp.dir}/custom" overwrite="true" encoding="utf-8">
+               <fileset dir="${src.dir}" />
+          </copy>
+          <delete includeemptydirs="true">
+              <fileset dir="${temp.dir}/custom" defaultexcludes="false">
+                    <include name="**/*src*/**" />
+                    <include name="**/*classes*/**" />
+                    <include name="**/*lib*/**" />
+                    <include name="**/*images*/**" />
+                    <include name="**/*javadoc*/**" />
+               </fileset>
+          </delete>
+          <!-- Package for Customization Extension -->
+          <zip destfile="${temp.dir}/${ant.project.name}_custom.zip" compress="true">
+               <fileset dir="${temp.dir}/custom" >
+                    <patternset refid="packaging.filter" />
+               </fileset>
+          </zip>
+     </target>     
+
+     <target name="local.deploy">
+          <copy todir="${server.dir}/hybris">
+               <fileset dir="${temp.dir}">
+                    <include name="*.zip" />
+               </fileset>
+          </copy>
+          <copy todir="${server.dir}/hybris">
+               <fileset dir="${temp.dir}">
+                    <include name="*.zip" />
+               </fileset>
+          </copy>
+          <exec dir="${server.dir}/hybris" executable="deploy.sh" osfamily="linux">
+          </exec>
+     </target>
+     
+     <target name="deleteSourceCode" description="Deletes all source code">
+          <delete includeemptydirs="true">
+              <fileset dir="${HYBRIS_BIN_DIR}/custom" defaultexcludes="false">
+                    <include name="**/*src*/**" />
+               </fileset>
+          </delete>
+     </target>
+
+</project>
